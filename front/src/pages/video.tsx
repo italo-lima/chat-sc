@@ -1,20 +1,13 @@
 import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { io } from 'socket.io-client';
-import Peer from 'peerjs';
 
 type QueryProps = {
   name: string;
   id: string;
 };
 
-let peer = new Peer(undefined, {
-  host: 'localhost',
-  port: 9000,
-  path: '/myapp',
-});
-
-const getUserMedia = window.navigator.getUserMedia;
+let peer: any = null;
 
 export default function Video() {
   const navigation = useRouter();
@@ -60,8 +53,14 @@ export default function Video() {
 
   useEffect(() => {
     // if (!id || !name) navigation.push('/');
+    const boot = async () => {
+      const Peer = (await import('peerjs')).default;
+      peer = new Peer({
+        host: 'localhost',
+        port: 9000,
+        path: '/myapp',
+      });
 
-    if (window?.navigator) {
       window.navigator.mediaDevices
         .getUserMedia({
           audio: true,
@@ -76,42 +75,39 @@ export default function Video() {
             connectToNewUser(userId, stream);
           });
         });
-      // socket.on('receive-message', (content: MessageProps) => {
-      //   setMessages(oldState => [...oldState, content])
-      // })
 
-      // socket.on('receive-status-user', ({status}) => {
-      //   setStatus(oldState => [...oldState, status])
-      // })
-    }
-  }, []);
-
-  useEffect(() => {
-    peer.on('call', function (call) {
-      getUserMedia(
-        { video: true, audio: true },
-        function (stream) {
-          call.answer(stream);
-          const video = getVideo();
-          call.on('stream', function (remoteStream) {
-            console.log('peer stream getUserMedia entrou');
-            addVideoStream(video, remoteStream);
-          });
-        },
-        function (err) {
-          console.log('Failed to get local stream', err);
-        }
-      );
-    });
-  }, []);
-
-  useEffect(() => {
-    peer.on('open', (user_id) => {
-      socket.emit('join', {
-        user_id,
-        room_id: id,
+      peer.on('open', (user_id: string) => {
+        socket.emit('join', {
+          user_id,
+          room_id: id,
+        });
       });
-    });
+
+      peer.on('call', function (call: any) {
+        window.navigator.getUserMedia(
+          { video: true, audio: true },
+          (stream) => {
+            call.answer(stream);
+            const video = getVideo();
+            call.on('stream', function (remoteStream: any) {
+              console.log('peer stream getUserMedia entrou');
+              addVideoStream(video, remoteStream);
+            });
+          },
+          (err) => {
+            console.log('Failed to get local stream', err);
+          }
+        );
+      });
+    };
+    // socket.on('receive-message', (content: MessageProps) => {
+    //   setMessages(oldState => [...oldState, content])
+    // })
+
+    // socket.on('receive-status-user', ({status}) => {
+    //   setStatus(oldState => [...oldState, status])
+    // })
+    boot();
   }, []);
 
   return (
